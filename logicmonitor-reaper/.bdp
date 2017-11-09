@@ -1,0 +1,29 @@
+# Always set to "v1.0".
+# For legacy purposes, defaults to "v0.1" when unset.
+schema_version: v1.0
+
+# Global variables. unit/product are required.
+global:
+
+  # These end up as tags
+  unit: sre
+  product: oaf
+  subproduct: utility
+  owner: sre@spscommerce.com
+
+  # environments available
+  environments:
+    - dev
+    - prod
+
+# Deploy section
+deploy:
+
+  # SAM deployment
+  - name: logic monitor reaper
+    deploy_type: sam
+    sam_file: deployment.yml
+    deployable_name: oaf-logicmonitor-reaper
+    git_repo: https://github.com/SPSCommerce/operation-automation-framework
+    room_id: 3164418
+    region: us-east-1

@@ -1,0 +1,75 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: 'AWS::Serverless-2016-10-31'
+Parameters:
+  Environment:
+    Type: String
+    Default: 'dev'
+    AllowedValues:
+    - dev
+    - test
+    - stage
+    - prod
+  GitSHA:
+    Type: String
+    Default: ''
+    Description: SHA of git commit
+  DeployBucket:
+    Type: String
+    Default: 'sps-build-deploy'
+    Description: S3 bucket used for deployable objects
+
+Outputs:
+  LogicMonitorReaperArn:
+    Description: "Arn of the lambda function"
+    Value: !GetAtt 'ReaperFunction.Arn'
+    Export:
+      Name: !Sub "${AWS::StackName}:LogicMonitorReaperArn"
+
+Resources:
+  ReaperFunction:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      Handler: logicmonitor-reaper.lambda_handler
+      Runtime: python2.7
+      CodeUri:
+          Bucket: !Ref 'DeployBucket'
+          Key: !Sub "${Environment}/sre/oaf/utility/oaf-logicmonitor-reaper/${GitSHA}/deployment.zip"
+      Description: "LogicMonitor Reaper Utility"
+      MemorySize: 512
+      Timeout: 300
+      Events:
+        Timer:
+          Type: Schedule
+          Properties:
+            Schedule: rate(4 hours)
+      Environment:
+        Variables:
+          environ: !Ref Environment
+      Policies:
+        - Statement:
+            Effect: Allow
+            Action: 'kms:Decrypt'
+            Resource:
+            - Fn::ImportValue:
+                !Sub "${Environment}-credstash:CredstashKeyArn"
+        - Statement:
+            Effect: Allow
+            Action: ['dynamodb:Query', 'dynamodb:GetItem']
+            Resource:
+            - Fn::ImportValue:
+                !Sub "${Environment}-credstash:CredstashTableArn"
+            Condition:
+              ForAllValues:StringLike:
+                dynamodb:LeadingKeys:
+                  - 'sre.oaf.utility.oaf-logicmonitor-reaper.id'
+                  - 'sre.oaf.utility.oaf-logicmonitor-reaper.key'
+                  
+
+#  CloudWatchAlarm:
+#    Type: AWS::CloudFormation::Stack
+#    Properties:
+#        TemplateURL: "https://s3.amazonaws.com/sps-build-deploy/sre/oaf/utilty/nested-cloudwatch-alarm.yml"
+#        TimeoutInMinutes: 5
+#        Parameters:
+#          FunctionName: !Ref ReaperFunction

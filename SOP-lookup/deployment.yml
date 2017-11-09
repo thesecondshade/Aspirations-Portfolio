@@ -1,0 +1,68 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: 'AWS::Serverless-2016-10-31'
+Parameters:
+  Environment:
+    Type: String
+    Default: 'dev'
+    AllowedValues:
+    - dev
+    - test
+    - stage
+    - prod
+  GitSHA:
+    Type: String
+    Default: ''
+    Description: SHA of git commit
+  DeployBucket:
+    Type: String
+    Default: 'sps-build-deploy'
+    Description: S3 bucket used for deployable objects
+
+# This is a 'helper' mapping in order to not carry crazy !Join's below
+Mappings:
+  EnvironmentMappings:
+    dev:
+      RouterStack: dev-oaf-pd-router-function
+
+Resources:
+  NotificationFunction:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      Handler: SOP-lookup.lambda_handler
+      Runtime: python2.7
+      CodeUri:
+          Bucket: !Ref 'DeployBucket'
+          Key: !Join ['', [!Ref 'Environment', /sre/oaf/service/oaf-SOP-lookup/, !Ref 'GitSHA' , '/deployment.zip']]
+      Description: "SOP Lookup service"
+      MemorySize: 128
+      Timeout: 16
+      Tracing: Active
+      Events:
+        PagerDutySNSArn:
+          Type: SNS
+          Properties:
+              Topic:
+                "Fn::ImportValue":
+                    "Fn::Join": [":", [!FindInMap [ EnvironmentMappings, !Ref Environment, RouterStack], "PagerDutySNS" ]]
+
+      Policies:
+        - Statement:
+            Effect: Allow
+            Action: "lambda:InvokeFunction"
+            Resource:
+                "Fn::ImportValue":
+                    "Fn::Join": ["-", [ !Ref 'Environment', "pd-commenter-lambda-arn" ] ]
+      Environment:
+        Variables:
+            PDCommenterArn:
+                "Fn::ImportValue":
+                    "Fn::Join": ["-", [ !Ref 'Environment', "pd-commenter-lambda-arn" ] ]
+
+  CloudWatchAlarm:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+        TemplateURL: "https://s3.amazonaws.com/sps-build-deploy/sre/oaf/utilty/nested-cloudwatch-alarm.yml"
+        TimeoutInMinutes: 2
+        Parameters:
+          FunctionName: !Ref NotificationFunction

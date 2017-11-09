@@ -1,0 +1,19 @@
+schema_version: v1.0
+
+global:
+  unit: sre
+  product: oaf
+  subproduct: utility
+  owner: sre@spscommerce.com
+  environments:
+    - dev
+    - prod
+
+deploy:
+  - name: pd-commenter
+    deploy_type: sam
+    sam_file: deployment.yml
+    deployable_name: oaf-pd-commenter
+    git_repo: https://github.com/SPSCommerce/operation-automation-framework
+    room_id: 3164418
+    region: us-east-1
