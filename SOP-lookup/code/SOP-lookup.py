@@ -17,7 +17,7 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 username = 'vgpierce@spscommerce.com'
-password = 'Sh3PP3rd15'
+password = 'PASSWORD'
 
 def lambda_handler(event, context):
     """
